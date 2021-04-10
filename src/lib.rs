@@ -91,12 +91,6 @@
 //! >   0x0001 = 0xD801.
 //! > * Add 0xDC00 to the low value to form the low surrogate: 0xDC00 +
 //! >   0x0037 = 0xDC37.
-//!
-//! #  Related Work
-//! This crate is a modified version of [Eric Kidd's](https://github.com/emk)
-//! [`cesu-rs` repository](https://github.com/emk/cesu8-rs).
-//! This crate was developed for [Residua](https://github.com/residua) as part
-//! of their technical philosophy to have no external dependencies.
 
 mod error;
 

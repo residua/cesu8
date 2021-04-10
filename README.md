@@ -75,12 +75,9 @@ The UTF-16 encoding uses "surrogate pairs" to represent Unicode code points in t
 U+10000 to U+10FFFF. These are 16-bit numbers in the range 0xD800 to 0xDFFF.
 
 * 0xD800 to 0xDBFF: First half of surrogate pair. When encoded as CESU-8, these become **1110**
-  1101 **10**100000 **10**
-  000000 to
-  **1110**1101 **10**101111 **10**111111.
-* 0xDC00 to 0xDFFF: Second half of surrogate pair. These become **1110**1101 **10**110000 **10**
-  000000 to **1110**
-  1101 **10**111111 **10**111111.
+  1101 **10**100000 **10**000000 to **1110**1101 **10**101111 **10**111111.
+* 0xDC00 to 0xDFFF: Second half of surrogate pair. These become **1110**1101 **10**110000
+  **10**000000 to **1110**1101 **10**111111 **10**111111.
 
 Wikipedia [explains][utf-16] the code point to UTF-16 conversion process:
 
@@ -89,13 +86,6 @@ Wikipedia [explains][utf-16] the code point to UTF-16 conversion process:
 > * Split this into the high 10-bit value and the low 10-bit value: 0000000001 and 0000110111.
 > * Add 0xD800 to the high value to form the high surrogate: 0xD800 + 0x0001 = 0xD801.
 > * Add 0xDC00 to the low value to form the low surrogate: 0xDC00 + 0x0037 = 0xDC37.
-
-# Related Work
-
-This crate is a modified version of [Eric Kidd's](https://github.com/emk)
-[`cesu-rs` repository](https://github.com/emk/cesu8-rs). This crate was developed
-for [Residua](https://github.com/residua) as part of their technical philosophy to have no external
-dependencies
 
 ## License
 
