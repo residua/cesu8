@@ -5,7 +5,10 @@
 [Latest Version]: https://img.shields.io/crates/v/residua-cesu8?logo=rust
 [crates.io]: https://crates.io/crates/residua-cesu8
 
-*A library for converting between CESU-8 and UTF-8.*
+*A library for converting between CESU-8 and UTF-8.* View the full reference on `docs.rs`
+[here][docs].
+
+[docs]: https://docs.rs/residua-cesu8
 
 ## Usage
 
