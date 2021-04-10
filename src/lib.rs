@@ -1,35 +1,70 @@
-//! A library which implements lightweight encoding and decoding functions for
-//! converting to and from
-//! [CESU-8](http://www.unicode.org/reports/tr26/tr26-2.html). This is a
-//! non-standard variant of UTF-8 that is used internally by some systems that
-//! need to represent UTF-16 as 8-bit characters.
 //!
-//! Use of this encoding is discouraged by the Unicode Consortium. This encoding
-//! should only be used for working with existing internal APIs.
+//! A library for convering between CESU-8 and UTF-8.
 //!
-//! ```
+//! # Examples
+//!
+//! > Unicode code points from the [Basic Multilingual Plane][bmp] (BMP), i.e. a
+//! > code point in the range U+0000 to U+FFFF is encoded in the same way as
+//! > UTF-8.
+//!
+//! [bmp]: https://en.wikipedia.org/wiki/Plane_(Unicode)#Basic_Multilingual_Plane
+//!
+//! If `cesu8::encode()` or `cesu8::decode()` only encounters data that is both
+//! valid CESU-8 and UTF-8 data, the `cesu8` crate leverages this using a
+//! [clone-on-write smart pointer][cow] ([Cow][rust-cow]). This means that there
+//! are no unnecessary operations and needless allocation of memory:
+//!
+//! [cow]: https://en.wikipedia.org/wiki/Copy-on-write
+//! [rust-cow]: https://doc.rust-lang.org/std/borrow/enum.Cow.html
+//!
+//! ```rust
 //! use std::borrow::Cow;
 //!
 //! let str = "Hello, world!";
-//! // 16-bit Unicode characters are the same in UTF-8 and CESU-8:
 //! assert_eq!(cesu8::encode(str), Cow::Borrowed(str.as_bytes()));
 //! assert_eq!(cesu8::decode(str.as_bytes()).unwrap(), Cow::Borrowed(str));
+//! ```
 //!
+//! When data needs to be encoded or decoded, it functions as one might expect:
+//!
+//! ```
+//! # use std::borrow::Cow;
 //! let str = "\u{10401}";
 //! let cesu8_data = &[0xED, 0xA0, 0x81, 0xED, 0xB0, 0x81];
-//! // 'cesu8_data' is a byte slice containing a 6-byte surrogate pair which
-//! // becomes a 4-byte UTF-8 character.
 //! assert_eq!(cesu8::decode(cesu8_data).unwrap(), Cow::Borrowed(str));
 //! ```
 //!
-//! ### Security
+//! # Technical Details
+//!
+//! > The **Compatibility Encoding Scheme for UTF-16: 8-Bit (CESU-8)** is a
+//! > variant of UTF-8 that is described in [Unicode Technical Report #26]
+//! > [report]. A Unicode code point from the [Basic Multilingual Plane][bmp]
+//! > (BMP), i.e. a code point in the range U+0000 to U+FFFF is encoded in the
+//! > same way as UTF-8. A Unicode supplementary character, i.e. a code point in
+//! > the range U+10000 to U+10FFFF, is first represented as a surrogate pair,
+//! > like in [UTF-16][utf-16], and then each surrogate point is encoded in
+//! > UTF-8. Therefore, CESU-8 needs six bytes (3 bytes per surrogate) for each
+//! > Unicode supplementary character while UTF-8 needs only four. Though not
+//! > specified in the technical report, *unpaired* surrogates are also encoded
+//! > as 3 bytes each, and CESU-8 is exactly the same as applying an older
+//! > [UCS-2] to UTF-8 converter to UTF-16 data.
+//!
+//! [report]: https://www.unicode.org/reports/tr26/tr26-4.html
+//! [utf-16]: https://en.wikipedia.org/wiki/UTF-16
+//! [ucs-2]: https://en.wikipedia.org/wiki/Universal_Coded_Character_Set
+//!
+//! > CESU-8 is not an official part of the Unicode Standard, because Unicode
+//! > Technical Reports are informative documents only. It should be used
+//! > exclusively for internal processing and never for external data exchange.
+//!
+//! ## Security
 //!
 //! As a general rule, this library is intended to fail on malformed or
 //! unexpected input. This is desired, as CESU-8 should only be used for
 //! internal use, any error should signify an issue with a developer's code or
 //! some attacker is trying to improperly encode data to evade security checks.
 //!
-//! ### Surrogate Pairs and UTF-8
+//! ## Surrogate Pairs and UTF-8
 //!
 //! The UTF-16 encoding uses "surrogate pairs" to represent Unicode code
 //! points in the range from U+10000 to U+10FFFF.  These are 16-bit numbers
@@ -43,7 +78,7 @@
 //!   **1110**1101 **10**110000 **10**000000 to
 //!   **1110**1101 **10**111111 **10**111111.
 //!
-//! Wikipedia [explains](http://en.wikipedia.org/wiki/UTF-16) the
+//! Wikipedia [explains][utf-16] the
 //! code point to UTF-16 conversion process:
 //!
 //! > Consider the encoding of U+10437 (𐐷):
@@ -57,7 +92,7 @@
 //! > * Add 0xDC00 to the low value to form the low surrogate: 0xDC00 +
 //! >   0x0037 = 0xDC37.
 //!
-//! ### Related Work
+//! #  Related Work
 //! This crate is a modified version of [Eric Kidd's](https://github.com/emk)
 //! [`cesu-rs` repository](https://github.com/emk/cesu8-rs).
 //! This crate was developed for [Residua](https://github.com/residua) as part
@@ -273,7 +308,7 @@ fn encode_surrogate_pair(surrogate_pair: [u16; 2]) -> [u8; 6] {
 
 #[inline]
 fn encode_surrogate(surrogate: u16) -> [u8; 3] {
-    const STRT_TAG: u8 = 0b11100000;
+    const STRT_TAG: u8 = 0b1110_0000;
     [
         STRT_TAG | ((surrogate & 0b1111_0000_0000_0000) >> 12) as u8,
         CONT_TAG | ((surrogate & 0b0000_1111_1100_0000) >> 6) as u8,
