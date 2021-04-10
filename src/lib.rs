@@ -132,12 +132,7 @@ pub fn decode(bytes: &[u8]) -> Result<Cow<str>, DecodingError> {
         }};
     }
 
-    loop {
-        let first = match iter.next() {
-            Some(&byte) => byte,
-            None => break,
-        };
-
+    while let Some(&first) = iter.next() {
         if first <= MAX_ASCII_CODE_POINT {
             decoded.push(first)
         } else {
@@ -163,7 +158,7 @@ pub fn decode(bytes: &[u8]) -> Result<Cow<str>, DecodingError> {
                                 err!();
                             }
                             let fifth = next_continuation!();
-                            if fifth < 0xB0 || 0xBF < fifth {
+                            if !(0xB0..=0xBF).contains(&fifth) {
                                 err!();
                             }
                             let sixth = next_continuation!();
