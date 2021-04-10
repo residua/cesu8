@@ -193,13 +193,13 @@ fn decode_surrogate_pair(second: u8, third: u8, fifth: u8, sixth: u8) -> [u8; 4]
 
 #[inline]
 fn decode_surrogate(second: u8, third: u8) -> u32 {
-    const VAL_MASK: u8 = 0b00111111;
+    const VAL_MASK: u8 = 0b0011_1111;
     0xD000 | ((second & VAL_MASK) as u32) << 6 | (third & VAL_MASK) as u32
 }
 
 #[inline]
 fn decode_code_point(code_point: u32) -> [u8; 4] {
-    const STRT_TAG: u8 = 0b11110000;
+    const STRT_TAG: u8 = 0b1111_0000;
     [
         STRT_TAG | ((code_point & 0b1_1100_0000_0000_0000_0000) >> 18) as u8,
         CONT_TAG | ((code_point & 0b0_0011_1111_0000_0000_0000) >> 12) as u8,
@@ -280,9 +280,9 @@ fn encode_surrogate_pair(surrogate_pair: [u16; 2]) -> [u8; 6] {
 fn encode_surrogate(surrogate: u16) -> [u8; 3] {
     const STRT_TAG: u8 = 0b11100000;
     [
-        STRT_TAG | ((surrogate & 0b11110000_00000000) >> 12) as u8,
-        CONT_TAG | ((surrogate & 0b00001111_11000000) >> 6) as u8,
-        CONT_TAG | ((surrogate & 0b00000000_00111111) as u8),
+        STRT_TAG | ((surrogate & 0b1111_0000_0000_0000) >> 12) as u8,
+        CONT_TAG | ((surrogate & 0b0000_1111_1100_0000) >> 6) as u8,
+        CONT_TAG | ((surrogate & 0b0000_0000_0011_1111) as u8),
     ]
 }
 
@@ -357,12 +357,12 @@ const CESU8_MAX_CHAR_WIDTH: usize = 3;
 
 #[inline]
 fn is_continuation_byte(byte: u8) -> bool {
-    const TAG_MASK: u8 = 0b11000000;
+    const TAG_MASK: u8 = 0b1100_0000;
     byte & TAG_MASK == CONT_TAG
 }
 
 /// The prefix of a continuation byte in UTF-8 is **10**xxxxxx
-const CONT_TAG: u8 = 0b10000000;
+const CONT_TAG: u8 = 0b1000_0000;
 
 /// Given a byte that is the first byte of a UTF-8 character, `utf_char_width()`
 /// returns the number of bytes the character uses to encode its code point in
