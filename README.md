@@ -1,4 +1,4 @@
-# `cesu8` &nbsp;[![Build Status]][actions] [![Latest Version]][crates.io]
+# `residua-cesu8` &nbsp;[![Build Status]][actions] [![Latest Version]][crates.io]
 
 [Build Status]: https://img.shields.io/github/workflow/status/residua/cesu8/CI?logo=github
 [actions]: https://github.com/residua/cesu8/actions/workflows/ci.yml
