@@ -8,8 +8,10 @@ use std::fmt;
 /// is trying to improperly encode data to evade security checks.
 ///
 /// ```rust
+/// use cesu8::{from_cesu8, DecodingError};
+///
 /// let bytes: &[u8] = &[];
-/// if let Err(cesu8::DecodingError) = cesu8::decode(bytes) {
+/// if let Err(DecodingError) = from_cesu8(bytes) {
 ///     panic!("An error occurred");
 /// }
 /// ```

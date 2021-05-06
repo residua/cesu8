@@ -9,7 +9,7 @@
 //!
 //! [bmp]: https://en.wikipedia.org/wiki/Plane_(Unicode)#Basic_Multilingual_Plane
 //!
-//! If `cesu8::encode()` or `cesu8::decode()` only encounters data that is both
+//! If [`from_cesu8`] or [`to_cesu8`] only encounters data that is both
 //! valid CESU-8 and UTF-8 data, the `cesu8` crate leverages this using a
 //! [clone-on-write smart pointer][cow] ([Cow][rust-cow]). This means that there
 //! are no unnecessary operations and needless allocation of memory:
@@ -19,19 +19,21 @@
 //!
 //! ```rust
 //! use std::borrow::Cow;
+//! use cesu8::{from_cesu8, to_cesu8};
 //!
 //! let str = "Hello, world!";
-//! assert_eq!(cesu8::encode(str), Cow::Borrowed(str.as_bytes()));
-//! assert_eq!(cesu8::decode(str.as_bytes()).unwrap(), Cow::Borrowed(str));
+//! assert_eq!(to_cesu8(str), Cow::Borrowed(str.as_bytes()));
+//! assert_eq!(from_cesu8(str.as_bytes()).unwrap(), Cow::Borrowed(str));
 //! ```
 //!
 //! When data needs to be encoded or decoded, it functions as one might expect:
 //!
 //! ```
 //! # use std::borrow::Cow;
+//! # use cesu8::from_cesu8;
 //! let str = "\u{10401}";
 //! let cesu8_data = &[0xED, 0xA0, 0x81, 0xED, 0xB0, 0x81];
-//! assert_eq!(cesu8::decode(cesu8_data).unwrap(), Cow::Borrowed(str));
+//! assert_eq!(from_cesu8(cesu8_data).unwrap(), Cow::Borrowed(str));
 //! ```
 //!
 //! # Technical Details
@@ -102,32 +104,38 @@ pub use error::DecodingError;
 /// Converts a slice of bytes to a string slice.
 ///
 /// First, if the slice of bytes is already valid UTF-8, this function is
-/// functionally no different than `std::str::from_utf8`; this means that
-/// `decode()` does not need to perform any further operations and doesn't need
-/// to allocate additional memory.
+/// functionally no different than [`std::str::from_utf8`]; this means that
+/// `from_cesu8()` does not need to perform any further operations and doesn't
+/// need to allocate additional memory.
 ///
-/// If the slice of bytes is not valid UTF-8, `decode()` works on the assumption
-/// that the slice of bytes, if not valid UTF-8, is valid CESU-8. It will then
-/// decode the bytes given to it and return the newly constructed string slice.
+/// If the slice of bytes is not valid UTF-8, `from_cesu8()` works on the
+/// assumption that the slice of bytes, if not valid UTF-8, is valid CESU-8.
+/// It will then decode the bytes given to it and return the newly constructed
+/// string slice.
 ///
-/// If the slice of bytes is found not to be valid CESU-8 data, `decode()`
+/// # Errors
+///
+/// If the slice of bytes is found not to be valid CESU-8 data, `from_cesu8()`
 /// returns `Err(DecodingError)` to signify that an error has occured.
+///
+/// # Examples
 ///
 /// ```
 /// use std::borrow::Cow;
+/// use cesu8::from_cesu8;
 ///
 /// let str = "Hello, world!";
-/// // Since 'str' is valid UTF-8 and CESU-8 data, 'cesu8::decode' can decode
+/// // Since 'str' is valid UTF-8 and CESU-8 data, 'from_cesu8' can decode
 /// // the string slice without allocating memory.
-/// assert_eq!(cesu8::decode(str.as_bytes()).unwrap(), Cow::Borrowed(str));
+/// assert_eq!(from_cesu8(str.as_bytes()).unwrap(), Cow::Borrowed(str));
 ///
 /// let str = "\u{10401}";
 /// let cesu8_data = &[0xED, 0xA0, 0x81, 0xED, 0xB0, 0x81];
 /// // 'cesu8_data' is a byte slice containing a 6-byte surrogate pair which
 /// // becomes a 4-byte UTF-8 character.
-/// assert_eq!(cesu8::decode(cesu8_data).unwrap(), Cow::Borrowed(str));
+/// assert_eq!(from_cesu8(cesu8_data).unwrap(), Cow::Borrowed(str));
 /// ```
-pub fn decode(bytes: &[u8]) -> Result<Cow<str>, DecodingError> {
+pub fn from_cesu8(bytes: &[u8]) -> Result<Cow<str>, DecodingError> {
     if let Ok(str) = from_utf8(bytes) {
         return Ok(Cow::Borrowed(str));
     }
@@ -236,36 +244,38 @@ fn decode_code_point(code_point: u32) -> [u8; 4] {
 ///
 /// If the string slice's representation in CESU-8 would be identical to its
 /// present UTF-8 representation, this function is functionally no different
-/// than `(&str).as_bytes()`; this means that `encode()` does not need to
-/// perform any further operations and doesn't need to allocate any additional
-/// memory.
+/// than [`(&str).as_bytes()`](str::as_bytes); this means that `to_cesu8` does
+/// not need to perform any further operations and doesn't need to allocate any
+/// additional memory.
 ///
 /// If the string slice's representation in UTF-8 is not equivalent in CESU-8,
-/// `encode()` encodes the string slice to its CESU-8 representation as a slice
+/// `to_cesu8` encodes the string slice to its CESU-8 representation as a slice
 /// of bytes.
+///
+/// # Examples
 ///
 /// ```
 /// use std::borrow::Cow;
-/// use cesu8;
+/// use cesu8::to_cesu8;
 ///
 /// let str = "Hello, world!";
-/// // Since 'str' is valid UTF-8 and CESU-8 data, 'cesu8::encode' can encode
+/// // Since 'str' is valid UTF-8 and CESU-8 data, 'to_cesu8' can encode
 /// // data without allocating memory.
-/// assert_eq!(cesu8::encode(str), Cow::Borrowed(str.as_bytes()));
+/// assert_eq!(to_cesu8(str), Cow::Borrowed(str.as_bytes()));
 ///
 /// let utf8_data = "\u{10401}";
 /// let cesu8_data = Cow::Borrowed(&[0xED, 0xA0, 0x81, 0xED, 0xB0, 0x81]);
 /// // 'utf8_data' is a 4-byte UTF-8 representation, which becomes a 6-byte
 /// // CESU-8 representation.
-/// assert_eq!(cesu8::encode(utf8_data), cesu8_data);
+/// assert_eq!(to_cesu8(utf8_data), cesu8_data);
 /// ```
-pub fn encode(str: &str) -> Cow<[u8]> {
-    if is_valid(str) {
+pub fn to_cesu8(str: &str) -> Cow<[u8]> {
+    if is_valid_cesu8(str) {
         return Cow::Borrowed(str.as_bytes());
     }
 
     let bytes = str.as_bytes();
-    let capacity = encoded_len(str);
+    let capacity = cesu8_len(str);
     let mut encoded = Vec::with_capacity(capacity);
     let mut index = 0;
 
@@ -320,7 +330,8 @@ fn to_surrogate_pair(code_point: u32) -> [u16; 2] {
 
 /// Given a string slice, this function returns how many bytes in CESU-8 are
 /// required to encode the string slice.
-pub fn encoded_len(str: &str) -> usize {
+// TODO: Add example
+pub fn cesu8_len(str: &str) -> usize {
     let bytes = str.as_bytes();
     let mut capacity = 0;
     let mut index = 0;
@@ -343,24 +354,27 @@ pub fn encoded_len(str: &str) -> usize {
 }
 
 /// Returns `true` if a string slice contains UTF-8 data that is also valid
-/// CESU-8. This is mainly used in testing if a string slice needs to be
-/// explicitly encoded using `cesu8::encode()`.
+/// CESU-8.
 ///
-/// If `is_valid()` returns `false`, it implies that `&str.as_bytes()` is
-/// directly equivalent to the string slice's CESU-8 representation.
+///This is primarily used in testing if a string slice needs to be
+/// explicitly encoded using [`to_cesu8`]. If `is_valid_cesu8()` returns
+/// `false`, it implies that [`&str.as_bytes()`](str::as_bytes) is directly
+/// equivalent to the string slice's CESU-8 representation.
 ///
 /// ```
+/// use cesu8::is_valid_cesu8;
+///
 /// let str = "Hello, world!";
-/// if cesu8::is_valid(&str) {
+/// if is_valid_cesu8(&str) {
 ///     println!("str contains valid CESU-8 data")
 /// } else {
 ///     panic!("str does not contain valid CESU-8 data")
 /// }
 ///
 /// // Any code point above U+10400 encoded in UTF-8 is not valid CESU-8.
-/// assert!(!cesu8::is_valid("\u{10401}"));
+/// assert!(!is_valid_cesu8("\u{10401}"));
 /// ```
-pub fn is_valid(str: &str) -> bool {
+pub fn is_valid_cesu8(str: &str) -> bool {
     for byte in str.bytes() {
         if is_continuation_byte(byte) {
             continue;
