@@ -4,7 +4,7 @@ version = "0.4.3"
 authors = ["Sean C. Roach <me@seancroach.dev>"]
 edition = "2018"
 
-description = "Convert between CESU-8 and UTF-8."
+description = "A library for converting between CESU-8 and UTF-8."
 repository = "https://github.com/residua/cesu8"
 license = "MIT"
 
