@@ -12,5 +12,4 @@ View the documentation on `docs.rs` [here][docs].
 
 ## License
 
-This crate is available as open source under the terms of the [MIT License](https://github.
-com/residua/cesu8/blob/latest/LICENSE.md).
+This crate is available as open source under the terms of the [MIT License](https://github.com/residua/cesu8/blob/latest/LICENSE.md).
