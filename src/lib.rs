@@ -1,7 +1,5 @@
 //!
-//! A library for convering between CESU-8 and UTF-8.
-//!
-//! # Examples
+//! A library for converting between CESU-8 and UTF-8.
 //!
 //! > Unicode code points from the [Basic Multilingual Plane][bmp] (BMP), i.e. a
 //! > code point in the range U+0000 to U+FFFF is encoded in the same way as
@@ -17,82 +15,39 @@
 //! [cow]: https://en.wikipedia.org/wiki/Copy-on-write
 //! [rust-cow]: https://doc.rust-lang.org/std/borrow/enum.Cow.html
 //!
+//! # Examples
+//!
 //! ```rust
 //! use std::borrow::Cow;
 //! use cesu8::{from_cesu8, to_cesu8};
 //!
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//!
 //! let str = "Hello, world!";
 //! assert_eq!(to_cesu8(str), Cow::Borrowed(str.as_bytes()));
-//! assert_eq!(from_cesu8(str.as_bytes()).unwrap(), Cow::Borrowed(str));
+//! assert_eq!(from_cesu8(str.as_bytes())?, Cow::Borrowed(str));
+//!
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! When data needs to be encoded or decoded, it functions as one might expect:
 //!
 //! ```
 //! # use std::borrow::Cow;
+//! # use std::error::Error;
 //! # use cesu8::from_cesu8;
-//! let str = "\u{10401}";
-//! let cesu8_data = &[0xED, 0xA0, 0x81, 0xED, 0xB0, 0x81];
-//! assert_eq!(from_cesu8(cesu8_data).unwrap(), Cow::Borrowed(str));
+//!
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//!
+//! let str = "\u{10400}";
+//! let cesu8_data = &[0xED, 0xA0, 0x81, 0xED, 0xB0, 0x80];
+//! assert_eq!(from_cesu8(cesu8_data)?, Cow::Borrowed(str));
+//!
+//! # Ok(())
+//! # }
 //! ```
-//!
-//! # Technical Details
-//!
-//! > The **Compatibility Encoding Scheme for UTF-16: 8-Bit (CESU-8)** is a
-//! > variant of UTF-8 that is described in [Unicode Technical Report #26]
-//! > [report]. A Unicode code point from the [Basic Multilingual Plane][bmp]
-//! > (BMP), i.e. a code point in the range U+0000 to U+FFFF is encoded in the
-//! > same way as UTF-8. A Unicode supplementary character, i.e. a code point in
-//! > the range U+10000 to U+10FFFF, is first represented as a surrogate pair,
-//! > like in [UTF-16][utf-16], and then each surrogate point is encoded in
-//! > UTF-8. Therefore, CESU-8 needs six bytes (3 bytes per surrogate) for each
-//! > Unicode supplementary character while UTF-8 needs only four. Though not
-//! > specified in the technical report, *unpaired* surrogates are also encoded
-//! > as 3 bytes each, and CESU-8 is exactly the same as applying an older
-//! > [UCS-2] to UTF-8 converter to UTF-16 data.
-//!
-//! [report]: https://www.unicode.org/reports/tr26/tr26-4.html
-//! [utf-16]: https://en.wikipedia.org/wiki/UTF-16
-//! [ucs-2]: https://en.wikipedia.org/wiki/Universal_Coded_Character_Set
-//!
-//! > CESU-8 is not an official part of the Unicode Standard, because Unicode
-//! > Technical Reports are informative documents only. It should be used
-//! > exclusively for internal processing and never for external data exchange.
-//!
-//! ## Security
-//!
-//! As a general rule, this library is intended to fail on malformed or
-//! unexpected input. This is desired, as CESU-8 should only be used for
-//! internal use, any error should signify an issue with a developer's code or
-//! some attacker is trying to improperly encode data to evade security checks.
-//!
-//! ## Surrogate Pairs and UTF-8
-//!
-//! The UTF-16 encoding uses "surrogate pairs" to represent Unicode code
-//! points in the range from U+10000 to U+10FFFF.  These are 16-bit numbers
-//! in the range 0xD800 to 0xDFFF.
-//!
-//! * 0xD800 to 0xDBFF: First half of surrogate pair.  When encoded as
-//!   CESU-8, these become **1110**1101 **10**100000 **10**000000 to
-//!   **1110**1101 **10**101111 **10**111111.
-//!
-//! * 0xDC00 to 0xDFFF: Second half of surrogate pair.  These become
-//!   **1110**1101 **10**110000 **10**000000 to
-//!   **1110**1101 **10**111111 **10**111111.
-//!
-//! Wikipedia [explains][utf-16] the
-//! code point to UTF-16 conversion process:
-//!
-//! > Consider the encoding of U+10437 (𐐷):
-//! >
-//! > * Subtract 0x10000 from 0x10437. The result is 0x00437, 0000 0000 0100
-//! >   0011 0111.
-//! > * Split this into the high 10-bit value and the low 10-bit value:
-//! >   0000000001 and 0000110111.
-//! > * Add 0xD800 to the high value to form the high surrogate: 0xD800 +
-//! >   0x0001 = 0xD801.
-//! > * Add 0xDC00 to the low value to form the low surrogate: 0xDC00 +
-//! >   0x0037 = 0xDC37.
 
 mod error;
 
@@ -104,9 +59,9 @@ pub use error::DecodingError;
 /// Converts a slice of bytes to a string slice.
 ///
 /// First, if the slice of bytes is already valid UTF-8, this function is
-/// functionally no different than [`std::str::from_utf8`]; this means that
-/// `from_cesu8()` does not need to perform any further operations and doesn't
-/// need to allocate additional memory.
+/// functionally no different than [`std::str::from_utf8`](std::str::from_utf8);
+/// this means that `from_cesu8()` does not need to perform any further
+/// operations and doesn't need to allocate additional memory.
 ///
 /// If the slice of bytes is not valid UTF-8, `from_cesu8()` works on the
 /// assumption that the slice of bytes, if not valid UTF-8, is valid CESU-8.
@@ -120,20 +75,28 @@ pub use error::DecodingError;
 ///
 /// # Examples
 ///
+/// Basic usage:
+///
 /// ```
 /// use std::borrow::Cow;
 /// use cesu8::from_cesu8;
 ///
+/// # use std::error::Error;
+/// # fn main() -> Result<(), Box<dyn Error>> {
+///
 /// let str = "Hello, world!";
 /// // Since 'str' is valid UTF-8 and CESU-8 data, 'from_cesu8' can decode
 /// // the string slice without allocating memory.
-/// assert_eq!(from_cesu8(str.as_bytes()).unwrap(), Cow::Borrowed(str));
+/// assert_eq!(from_cesu8(str.as_bytes())?, Cow::Borrowed(str));
 ///
-/// let str = "\u{10401}";
-/// let cesu8_data = &[0xED, 0xA0, 0x81, 0xED, 0xB0, 0x81];
+/// let str = "\u{10400}";
+/// let cesu8_data = &[0xED, 0xA0, 0x81, 0xED, 0xB0, 0x80];
 /// // 'cesu8_data' is a byte slice containing a 6-byte surrogate pair which
 /// // becomes a 4-byte UTF-8 character.
-/// assert_eq!(from_cesu8(cesu8_data).unwrap(), Cow::Borrowed(str));
+/// assert_eq!(from_cesu8(cesu8_data)?, Cow::Borrowed(str));
+///
+/// # Ok(())
+/// # }
 /// ```
 pub fn from_cesu8(bytes: &[u8]) -> Result<Cow<str>, DecodingError> {
     if let Ok(str) = from_utf8(bytes) {
@@ -254,6 +217,8 @@ fn decode_code_point(code_point: u32) -> [u8; 4] {
 ///
 /// # Examples
 ///
+/// Basic usage:
+///
 /// ```
 /// use std::borrow::Cow;
 /// use cesu8::to_cesu8;
@@ -328,9 +293,22 @@ fn to_surrogate_pair(code_point: u32) -> [u16; 2] {
     [first, second]
 }
 
-/// Given a string slice, this function returns how many bytes in CESU-8 are
-/// required to encode the string slice.
-// TODO: Add example
+/// Returns how many bytes in CESU-8 are required to encode a string slice.
+///
+/// # Examples
+///
+/// Basic usage:
+///
+/// ```
+/// use cesu8::cesu8_len;
+///
+/// // Any codepoint below or equal to U+FFFF is the same length as it is in
+/// // UTF-8.
+/// assert_eq!(3, cesu8_len("\u{FFFF}"));
+///
+/// // Any codepoint above U+FFFF is stored as a surrogate pair.
+/// assert_eq!(6, cesu8_len("\u{10000}"));
+/// ```
 pub fn cesu8_len(str: &str) -> usize {
     let bytes = str.as_bytes();
     let mut capacity = 0;
@@ -356,23 +334,24 @@ pub fn cesu8_len(str: &str) -> usize {
 /// Returns `true` if a string slice contains UTF-8 data that is also valid
 /// CESU-8.
 ///
-///This is primarily used in testing if a string slice needs to be
-/// explicitly encoded using [`to_cesu8`]. If `is_valid_cesu8()` returns
-/// `false`, it implies that [`&str.as_bytes()`](str::as_bytes) is directly
-/// equivalent to the string slice's CESU-8 representation.
+/// This is primarily used in testing if a string slice needs to be
+/// explicitly encoded using [`to_cesu8`](to_cesu8). If `is_valid_cesu8()`
+/// returns `false`, it implies that [`&str.as_bytes()`](str::as_bytes) is
+/// directly equivalent to the string slice's CESU-8 representation.
+///
+/// # Examples
+///
+/// Basic usage:
 ///
 /// ```
 /// use cesu8::is_valid_cesu8;
 ///
-/// let str = "Hello, world!";
-/// if is_valid_cesu8(&str) {
-///     println!("str contains valid CESU-8 data")
-/// } else {
-///     panic!("str does not contain valid CESU-8 data")
-/// }
+/// // Any code point below or equal to U+FFFF encoded in UTF-8 IS valid CESU-8.
+/// assert!(is_valid_cesu8("Hello, world!"));
+/// assert!(is_valid_cesu8("\u{FFFF}"));
 ///
-/// // Any code point above U+10400 encoded in UTF-8 is not valid CESU-8.
-/// assert!(!is_valid_cesu8("\u{10401}"));
+/// // Any code point above U+FFFF encoded in UTF-8 IS NOT valid CESU-8.
+/// assert!(!is_valid_cesu8("\u{10000}"));
 /// ```
 pub fn is_valid_cesu8(str: &str) -> bool {
     for byte in str.bytes() {
@@ -390,7 +369,6 @@ pub fn is_valid_cesu8(str: &str) -> bool {
     true
 }
 
-/// The maximum UTF-8 character width in bytes that CESU-8 can use as-is.
 const CESU8_MAX_CHAR_WIDTH: usize = 3;
 
 #[inline]
@@ -399,14 +377,8 @@ fn is_continuation_byte(byte: u8) -> bool {
     byte & TAG_MASK == CONT_TAG
 }
 
-/// The prefix of a continuation byte in UTF-8 is **10**xxxxxx
 const CONT_TAG: u8 = 0b1000_0000;
 
-/// Given a byte that is the first byte of a UTF-8 character, `utf_char_width()`
-/// returns the number of bytes the character uses to encode its code point in
-/// the form of `Some(usize)` where the `usize` value is guaranteed to be in the
-/// range [1, 4]. Otherwise, if the byte is not a valid first byte of a UTF-8
-/// code point, `utf8_char_width()` returns `None`.
 fn utf8_char_width(byte: u8) -> Option<usize> {
     match byte {
         0x00..=MAX_ASCII_CODE_POINT => Some(1),
@@ -417,6 +389,4 @@ fn utf8_char_width(byte: u8) -> Option<usize> {
     }
 }
 
-/// The last code point that ASCII can represent. Also, the last code point that
-/// can be represented only with one byte.
 const MAX_ASCII_CODE_POINT: u8 = 0x7F;
