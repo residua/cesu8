@@ -1,4 +1,3 @@
-//!
 //! A library for converting between CESU-8 and UTF-8.
 //!
 //! > Unicode code points from the [Basic Multilingual Plane][bmp] (BMP), i.e. a
@@ -21,40 +20,24 @@
 //! use std::borrow::Cow;
 //! use cesu8::{from_cesu8, to_cesu8};
 //!
-//! # use std::error::Error;
-//! # fn main() -> Result<(), Box<dyn Error>> {
-//!
 //! let str = "Hello, world!";
 //! assert_eq!(to_cesu8(str), Cow::Borrowed(str.as_bytes()));
-//! assert_eq!(from_cesu8(str.as_bytes())?, Cow::Borrowed(str));
-//!
-//! # Ok(())
-//! # }
+//! assert_eq!(from_cesu8(str.as_bytes()), Cow::Borrowed(str));
 //! ```
 //!
 //! When data needs to be encoded or decoded, it functions as one might expect:
 //!
 //! ```
 //! # use std::borrow::Cow;
-//! # use std::error::Error;
 //! # use cesu8::from_cesu8;
-//!
-//! # fn main() -> Result<(), Box<dyn Error>> {
 //!
 //! let str = "\u{10400}";
 //! let cesu8_data = &[0xED, 0xA0, 0x81, 0xED, 0xB0, 0x80];
-//! assert_eq!(from_cesu8(cesu8_data)?, Cow::Borrowed(str));
-//!
-//! # Ok(())
-//! # }
+//! assert_eq!(from_cesu8(cesu8_data), Cow::Borrowed(str));
 //! ```
-
-mod error;
 
 use std::borrow::Cow;
 use std::str::from_utf8;
-
-pub use error::DecodingError;
 
 /// Converts a slice of bytes to a string slice.
 ///
@@ -68,10 +51,9 @@ pub use error::DecodingError;
 /// It will then decode the bytes given to it and return the newly constructed
 /// string slice.
 ///
-/// # Errors
+/// # Panics
 ///
-/// If the slice of bytes is found not to be valid CESU-8 data, `from_cesu8()`
-/// returns `Err(DecodingError)` to signify that an error has occured.
+/// Panics if the slice of bytes is found not to be valid CESU-8 data.
 ///
 /// # Examples
 ///
@@ -81,42 +63,36 @@ pub use error::DecodingError;
 /// use std::borrow::Cow;
 /// use cesu8::from_cesu8;
 ///
-/// # use std::error::Error;
-/// # fn main() -> Result<(), Box<dyn Error>> {
-///
 /// let str = "Hello, world!";
 /// // Since 'str' is valid UTF-8 and CESU-8 data, 'from_cesu8' can decode
 /// // the string slice without allocating memory.
-/// assert_eq!(from_cesu8(str.as_bytes())?, Cow::Borrowed(str));
+/// assert_eq!(from_cesu8(str.as_bytes()), Cow::Borrowed(str));
 ///
 /// let str = "\u{10400}";
 /// let cesu8_data = &[0xED, 0xA0, 0x81, 0xED, 0xB0, 0x80];
 /// // 'cesu8_data' is a byte slice containing a 6-byte surrogate pair which
 /// // becomes a 4-byte UTF-8 character.
-/// assert_eq!(from_cesu8(cesu8_data)?, Cow::Borrowed(str));
-///
-/// # Ok(())
-/// # }
+/// assert_eq!(from_cesu8(cesu8_data), Cow::Borrowed(str));
 /// ```
-pub fn from_cesu8(bytes: &[u8]) -> Result<Cow<str>, DecodingError> {
+pub fn from_cesu8(bytes: &[u8]) -> Cow<str> {
     if let Ok(str) = from_utf8(bytes) {
-        return Ok(Cow::Borrowed(str));
+        return Cow::Borrowed(str);
     }
 
     let mut decoded = Vec::with_capacity(bytes.len());
     let mut iter = bytes.iter();
 
     macro_rules! err {
-        () => {
-            return Err(DecodingError)
-        };
+        () => {{
+            panic!("invalid CESU-8 data");
+        }};
     }
 
     macro_rules! next {
         () => {
             match iter.next() {
                 Some(&byte) => byte,
-                None => return Err(DecodingError),
+                None => err!(),
             }
         };
     }
@@ -127,7 +103,7 @@ pub fn from_cesu8(bytes: &[u8]) -> Result<Cow<str>, DecodingError> {
             if is_continuation_byte(byte) {
                 byte
             } else {
-                return Err(DecodingError);
+                err!();
             }
         }};
     }
@@ -175,7 +151,7 @@ pub fn from_cesu8(bytes: &[u8]) -> Result<Cow<str>, DecodingError> {
     }
 
     debug_assert!(from_utf8(&decoded).is_ok());
-    Ok(Cow::Owned(unsafe { String::from_utf8_unchecked(decoded) }))
+    Cow::Owned(unsafe { String::from_utf8_unchecked(decoded) })
 }
 
 #[inline]
