@@ -1,6 +1,6 @@
 [package]
 name = "residua-cesu8"
-version = "0.5.2"
+version = "0.6.0"
 authors = ["Sean C. Roach <me@seancroach.dev>"]
 edition = "2018"
 
