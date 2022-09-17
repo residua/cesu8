@@ -36,6 +36,8 @@
 //! assert_eq!(from_cesu8(cesu8_data), Cow::Borrowed(str));
 //! ```
 
+#![deny(clippy::pedantic)]
+
 use std::borrow::Cow;
 use std::str::from_utf8;
 
@@ -74,6 +76,7 @@ use std::str::from_utf8;
 /// // becomes a 4-byte UTF-8 character.
 /// assert_eq!(from_cesu8(cesu8_data), Cow::Borrowed(str));
 /// ```
+#[allow(clippy::unnested_or_patterns)]
 pub fn from_cesu8(bytes: &[u8]) -> Cow<str> {
     if let Ok(str) = from_utf8(bytes) {
         return Cow::Borrowed(str);
@@ -110,7 +113,7 @@ pub fn from_cesu8(bytes: &[u8]) -> Cow<str> {
 
     while let Some(&first) = iter.next() {
         if first <= MAX_ASCII_CODE_POINT {
-            decoded.push(first)
+            decoded.push(first);
         } else {
             let width = match utf8_char_width(first) {
                 Some(v) => v,
@@ -210,6 +213,7 @@ fn decode_code_point(code_point: u32) -> [u8; 4] {
 /// // CESU-8 representation.
 /// assert_eq!(to_cesu8(utf8_data), cesu8_data);
 /// ```
+#[must_use]
 pub fn to_cesu8(str: &str) -> Cow<[u8]> {
     if is_valid_cesu8(str) {
         return Cow::Borrowed(str.as_bytes());
@@ -229,13 +233,13 @@ pub fn to_cesu8(str: &str) -> Cow<[u8]> {
             let width = utf8_char_width(byte).unwrap();
             let slice_range = index..index + width;
             if width <= CESU8_MAX_CHAR_WIDTH {
-                encoded.extend(&bytes[slice_range])
+                encoded.extend(&bytes[slice_range]);
             } else {
                 let str = &str[slice_range];
                 let code_point = str.chars().next().unwrap() as u32;
                 let surrogate_pair = to_surrogate_pair(code_point);
                 let encoded_pair = encode_surrogate_pair(surrogate_pair);
-                encoded.extend(&encoded_pair)
+                encoded.extend(&encoded_pair);
             }
             index += width;
         }
@@ -285,18 +289,19 @@ fn to_surrogate_pair(code_point: u32) -> [u16; 2] {
 /// // Any codepoint above U+FFFF is stored as a surrogate pair.
 /// assert_eq!(6, cesu8_len("\u{10000}"));
 /// ```
+#[must_use]
 pub fn cesu8_len(str: &str) -> usize {
     let bytes = str.as_bytes();
-    let mut capacity = 0;
+    let mut len = 0;
     let mut index = 0;
     while index < bytes.len() {
         let byte = bytes[index];
         if byte <= MAX_ASCII_CODE_POINT {
-            capacity += 1;
+            len += 1;
             index += 1;
         } else {
             let width = utf8_char_width(byte).unwrap();
-            capacity += if width <= CESU8_MAX_CHAR_WIDTH {
+            len += if width <= CESU8_MAX_CHAR_WIDTH {
                 width
             } else {
                 6
@@ -304,7 +309,7 @@ pub fn cesu8_len(str: &str) -> usize {
             index += width;
         }
     }
-    capacity
+    len
 }
 
 /// Returns `true` if a string slice contains UTF-8 data that is also valid
@@ -329,6 +334,7 @@ pub fn cesu8_len(str: &str) -> usize {
 /// // Any code point above U+FFFF encoded in UTF-8 IS NOT valid CESU-8.
 /// assert!(!is_valid_cesu8("\u{10000}"));
 /// ```
+#[must_use]
 pub fn is_valid_cesu8(str: &str) -> bool {
     for byte in str.bytes() {
         if is_continuation_byte(byte) {
