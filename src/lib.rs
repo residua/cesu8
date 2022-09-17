@@ -8,13 +8,15 @@
 //!
 //! If [`from_cesu8`] or [`to_cesu8`] only encounters data that is both
 //! valid CESU-8 and UTF-8 data, the `cesu8` crate leverages this using a
-//! [clone-on-write smart pointer][cow] ([Cow][rust-cow]). This means that there
+//! [clone-on-write smart pointer][cow] ([`Cow`][rust-cow]). This means that there
 //! are no unnecessary operations and needless allocation of memory:
 //!
 //! [cow]: https://en.wikipedia.org/wiki/Copy-on-write
 //! [rust-cow]: https://doc.rust-lang.org/std/borrow/enum.Cow.html
 //!
 //! # Examples
+//!
+//! Basic usage:
 //!
 //! ```rust
 //! use std::borrow::Cow;
@@ -33,7 +35,8 @@
 //!
 //! let str = "\u{10400}";
 //! let cesu8_data = &[0xED, 0xA0, 0x81, 0xED, 0xB0, 0x80];
-//! assert_eq!(from_cesu8(cesu8_data), Ok(Cow::Borrowed(str)));
+//! let result: Result<Cow<str>, cesu8::DecodingError> = from_cesu8(cesu8_data);
+//! assert_eq!(result.unwrap(), Cow::<str>::Owned(String::from(str)));
 //! ```
 
 #![deny(clippy::pedantic)]
