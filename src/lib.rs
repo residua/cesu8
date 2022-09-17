@@ -53,9 +53,9 @@ use std::{borrow::Cow, error::Error, fmt, str::from_utf8};
 /// It will then decode the bytes given to it and return the newly constructed
 /// string slice.
 ///
-/// # Panics
+/// # Errors
 ///
-/// Panics if the slice of bytes is found not to be valid CESU-8 data.
+/// Returns [`DecodingError`] if the input is invalid CESU-8 data.
 ///
 /// # Examples
 ///
