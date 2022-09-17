@@ -24,8 +24,6 @@ residua-cesu8 = "1"
 
 ## Examples
 
-# Examples
-
 Basic usage:
 
 ```rust
