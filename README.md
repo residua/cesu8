@@ -1,14 +1,18 @@
-# `residua-cesu8` &nbsp;[![Build Status]][actions] [![Latest Version]][crates.io]
+# cesu8
+
+A simple library for converting between CESU-8 and UTF-8.
+
+[![Build Status]][actions]
+[![Latest Version]][crates.io]
 
 [Build Status]: https://img.shields.io/github/workflow/status/residua/cesu8/CI?logo=github
 [actions]: https://github.com/residua/cesu8/actions/workflows/ci.yml
 [Latest Version]: https://img.shields.io/crates/v/residua-cesu8?logo=rust
 [crates.io]: https://crates.io/crates/residua-cesu8
 
-*A library for converting between CESU-8 and UTF-8.*
-View the documentation on `docs.rs` [here][docs].
+## Documentation
 
-[docs]: https://docs.rs/residua-cesu8
+[Module documentation with examples](https://docs.rs/residua-cesu8).
 
 ## Usage
 
