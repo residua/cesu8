@@ -22,7 +22,7 @@
 //!
 //! let str = "Hello, world!";
 //! assert_eq!(to_cesu8(str), Cow::Borrowed(str.as_bytes()));
-//! assert_eq!(from_cesu8(str.as_bytes()), Cow::Borrowed(str));
+//! assert_eq!(from_cesu8(str.as_bytes()), Ok(Cow::Borrowed(str)));
 //! ```
 //!
 //! When data needs to be encoded or decoded, it functions as one might expect:
@@ -33,13 +33,13 @@
 //!
 //! let str = "\u{10400}";
 //! let cesu8_data = &[0xED, 0xA0, 0x81, 0xED, 0xB0, 0x80];
-//! assert_eq!(from_cesu8(cesu8_data), Cow::Borrowed(str));
+//! assert_eq!(from_cesu8(cesu8_data), Ok(Cow::Borrowed(str)));
 //! ```
 
 #![deny(clippy::pedantic)]
+#![allow(clippy::cast_lossless, clippy::cast_possible_truncation)]
 
-use std::borrow::Cow;
-use std::str::from_utf8;
+use std::{borrow::Cow, error::Error, fmt, str::from_utf8};
 
 /// Converts a slice of bytes to a string slice.
 ///
@@ -68,26 +68,31 @@ use std::str::from_utf8;
 /// let str = "Hello, world!";
 /// // Since 'str' is valid UTF-8 and CESU-8 data, 'from_cesu8' can decode
 /// // the string slice without allocating memory.
-/// assert_eq!(from_cesu8(str.as_bytes()), Cow::Borrowed(str));
+/// assert_eq!(from_cesu8(str.as_bytes()), Ok(Cow::Borrowed(str)));
 ///
 /// let str = "\u{10400}";
 /// let cesu8_data = &[0xED, 0xA0, 0x81, 0xED, 0xB0, 0x80];
 /// // 'cesu8_data' is a byte slice containing a 6-byte surrogate pair which
 /// // becomes a 4-byte UTF-8 character.
-/// assert_eq!(from_cesu8(cesu8_data), Cow::Borrowed(str));
+/// assert_eq!(from_cesu8(cesu8_data), Ok(Cow::Borrowed(str)));
 /// ```
-#[allow(clippy::unnested_or_patterns)]
-pub fn from_cesu8(bytes: &[u8]) -> Cow<str> {
-    if let Ok(str) = from_utf8(bytes) {
-        return Cow::Borrowed(str);
-    }
+#[inline]
+pub fn from_cesu8(bytes: &[u8]) -> Result<Cow<str>, DecodingError> {
+    from_utf8(bytes)
+        .map(Cow::Borrowed)
+        .or_else(|_| decode_cesu8(bytes).map(Cow::Owned))
+}
 
+#[inline(never)]
+#[cold]
+#[allow(clippy::unnested_or_patterns)]
+fn decode_cesu8(bytes: &[u8]) -> Result<String, DecodingError> {
     let mut decoded = Vec::with_capacity(bytes.len());
     let mut iter = bytes.iter();
 
     macro_rules! err {
         () => {{
-            panic!("invalid CESU-8 data");
+            return Err(DecodingError);
         }};
     }
 
@@ -154,7 +159,7 @@ pub fn from_cesu8(bytes: &[u8]) -> Cow<str> {
     }
 
     debug_assert!(from_utf8(&decoded).is_ok());
-    Cow::Owned(unsafe { String::from_utf8_unchecked(decoded) })
+    Ok(unsafe { String::from_utf8_unchecked(decoded) })
 }
 
 #[inline]
@@ -214,11 +219,19 @@ fn decode_code_point(code_point: u32) -> [u8; 4] {
 /// assert_eq!(to_cesu8(utf8_data), cesu8_data);
 /// ```
 #[must_use]
+#[inline]
 pub fn to_cesu8(str: &str) -> Cow<[u8]> {
     if is_valid_cesu8(str) {
-        return Cow::Borrowed(str.as_bytes());
+        Cow::Borrowed(str.as_bytes())
+    } else {
+        Cow::Owned(encode_cesu8(str))
     }
+}
 
+#[must_use]
+#[inline(never)]
+#[cold]
+fn encode_cesu8(str: &str) -> Vec<u8> {
     let bytes = str.as_bytes();
     let capacity = cesu8_len(str);
     let mut encoded = Vec::with_capacity(capacity);
@@ -245,7 +258,7 @@ pub fn to_cesu8(str: &str) -> Cow<[u8]> {
         }
     }
 
-    Cow::Owned(encoded)
+    encoded
 }
 
 #[inline]
@@ -300,7 +313,8 @@ pub fn cesu8_len(str: &str) -> usize {
             len += 1;
             index += 1;
         } else {
-            let width = utf8_char_width(byte).unwrap();
+            // SAFETY: Valid UTF-8 will never yield a `None` value:
+            let width = unsafe { utf8_char_width(byte).unwrap_unchecked() };
             len += if width <= CESU8_MAX_CHAR_WIDTH {
                 width
             } else {
@@ -372,3 +386,19 @@ fn utf8_char_width(byte: u8) -> Option<usize> {
 }
 
 const MAX_ASCII_CODE_POINT: u8 = 0x7F;
+
+/// An error thrown by [`from_cesu8`] when the input is invalid CESU-8 data.
+///
+/// This type does not support transmission of an error other than that an error
+/// occurred.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DecodingError;
+
+impl fmt::Display for DecodingError {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("invalid CESU-8 data")
+    }
+}
+
+impl Error for DecodingError {}
