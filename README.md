@@ -5,7 +5,7 @@ A simple library for converting between CESU-8 and UTF-8.
 [![Build Status]][actions]
 [![Latest Version]][crates.io]
 
-[Build Status]: https://img.shields.io/github/workflow/status/residua/cesu8/CI?logo=github
+[Build Status]: https://img.shields.io/github/workflow/status/residua/cesu8/ci?logo=github
 [actions]: https://github.com/residua/cesu8/actions/workflows/ci.yml
 [Latest Version]: https://img.shields.io/crates/v/residua-cesu8?logo=rust
 [crates.io]: https://crates.io/crates/residua-cesu8
