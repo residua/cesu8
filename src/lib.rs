@@ -34,7 +34,6 @@
 //! ```
 //! # extern crate alloc;
 //! # use alloc::borrow::Cow;
-//!
 //! # fn main() -> Result<(), cesu8::Error> {
 //! let str = "\u{10400}";
 //! let cesu8_data = &[0xED, 0xA0, 0x81, 0xED, 0xB0, 0x80];
