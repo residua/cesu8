@@ -6,81 +6,96 @@
 //!
 //! [bmp]: https://en.wikipedia.org/wiki/Plane_(Unicode)#Basic_Multilingual_Plane
 //!
-//! If [`from_cesu8`] or [`to_cesu8`] only encounters data that is both
+//! If [`encode`] or [`decode`] only encounters data that is both
 //! valid CESU-8 and UTF-8 data, the `cesu8` crate leverages this using a
-//! [clone-on-write smart pointer][cow] ([`Cow`][rust-cow]). This means that there
+//! [clone-on-write smart pointer][cow] ([`Cow`]). This means that there
 //! are no unnecessary operations and needless allocation of memory:
 //!
 //! [cow]: https://en.wikipedia.org/wiki/Copy-on-write
-//! [rust-cow]: https://doc.rust-lang.org/std/borrow/enum.Cow.html
 //!
 //! # Examples
 //!
 //! Basic usage:
 //!
 //! ```rust
-//! use std::borrow::Cow;
-//! use cesu8::{from_cesu8, to_cesu8};
+//! # extern crate alloc;
+//! use alloc::borrow::Cow;
 //!
+//! # fn main() -> Result<(), cesu8::Error> {
 //! let str = "Hello, world!";
-//! assert_eq!(to_cesu8(str), Cow::Borrowed(str.as_bytes()));
-//! assert_eq!(from_cesu8(str.as_bytes()), Ok(Cow::Borrowed(str)));
+//! assert_eq!(cesu8::encode(str), Cow::Borrowed(str.as_bytes()));
+//! assert_eq!(cesu8::decode(str.as_bytes())?, Cow::Borrowed(str));
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! When data needs to be encoded or decoded, it functions as one might expect:
 //!
 //! ```
-//! # use std::borrow::Cow;
-//! # use cesu8::from_cesu8;
+//! # extern crate alloc;
+//! # use alloc::borrow::Cow;
 //!
+//! # fn main() -> Result<(), cesu8::Error> {
 //! let str = "\u{10400}";
 //! let cesu8_data = &[0xED, 0xA0, 0x81, 0xED, 0xB0, 0x80];
-//! let result: Result<Cow<str>, cesu8::DecodingError> = from_cesu8(cesu8_data);
-//! assert_eq!(result.unwrap(), Cow::<str>::Owned(String::from(str)));
+//! assert_eq!(cesu8::decode(cesu8_data)?, Cow::<str>::Owned(String::from(str)));
+//! # Ok(())
+//! # }
 //! ```
+//!
+//! # Features
+//!
+//! - `std` implements [`std::error::Error`] on [`Error`]. By  default this
+//! feature is enabled.
 
+#![cfg_attr(not(feature = "std"), no_std)]
 #![deny(clippy::pedantic)]
 #![allow(clippy::cast_lossless, clippy::cast_possible_truncation)]
 
-use std::{borrow::Cow, error::Error, fmt, str::from_utf8};
+extern crate alloc;
+
+use alloc::{borrow::Cow, str::from_utf8, string::String, vec::Vec};
+use core::fmt;
 
 /// Converts a slice of bytes to a string slice.
 ///
 /// First, if the slice of bytes is already valid UTF-8, this function is
 /// functionally no different than [`std::str::from_utf8`](std::str::from_utf8);
-/// this means that `from_cesu8()` does not need to perform any further
-/// operations and doesn't need to allocate additional memory.
+/// this means that `decode` does not need to perform any further operations
+/// and doesn't need to allocate additional memory.
 ///
-/// If the slice of bytes is not valid UTF-8, `from_cesu8()` works on the
-/// assumption that the slice of bytes, if not valid UTF-8, is valid CESU-8.
-/// It will then decode the bytes given to it and return the newly constructed
-/// string slice.
+/// If the slice of bytes is not valid UTF-8, `decode` works on the assumption
+/// that the slice of bytes, if not valid UTF-8, is valid CESU-8. It will then
+/// decode the bytes given to it and return the newly constructed string slice.
 ///
 /// # Errors
 ///
-/// Returns [`DecodingError`] if the input is invalid CESU-8 data.
+/// Returns [`cesu8::Error`](Error) if the input is invalid CESU-8 data.
 ///
 /// # Examples
 ///
 /// Basic usage:
 ///
 /// ```
-/// use std::borrow::Cow;
-/// use cesu8::from_cesu8;
+/// # extern crate alloc;
+/// use alloc::borrow::Cow;
 ///
+/// # fn main() -> Result<(), cesu8::Error> {
 /// let str = "Hello, world!";
-/// // Since 'str' is valid UTF-8 and CESU-8 data, 'from_cesu8' can decode
+/// // Since 'str' is valid UTF-8 and CESU-8 data, 'cesu8::decode' can decode
 /// // the string slice without allocating memory.
-/// assert_eq!(from_cesu8(str.as_bytes()), Ok(Cow::Borrowed(str)));
+/// assert_eq!(cesu8::decode(str.as_bytes())?, Cow::Borrowed(str));
 ///
 /// let str = "\u{10400}";
 /// let cesu8_data = &[0xED, 0xA0, 0x81, 0xED, 0xB0, 0x80];
 /// // 'cesu8_data' is a byte slice containing a 6-byte surrogate pair which
 /// // becomes a 4-byte UTF-8 character.
-/// assert_eq!(from_cesu8(cesu8_data), Ok(Cow::Borrowed(str)));
+/// assert_eq!(cesu8::decode(cesu8_data)?, Cow::Borrowed(str));
+/// # Ok(())
+/// # }
 /// ```
 #[inline]
-pub fn from_cesu8(bytes: &[u8]) -> Result<Cow<str>, DecodingError> {
+pub fn decode(bytes: &[u8]) -> Result<Cow<str>, Error> {
     from_utf8(bytes)
         .map(Cow::Borrowed)
         .or_else(|_| decode_cesu8(bytes).map(Cow::Owned))
@@ -88,14 +103,14 @@ pub fn from_cesu8(bytes: &[u8]) -> Result<Cow<str>, DecodingError> {
 
 #[inline(never)]
 #[cold]
-#[allow(clippy::unnested_or_patterns)]
-fn decode_cesu8(bytes: &[u8]) -> Result<String, DecodingError> {
+#[allow(clippy::unnested_or_patterns)] // this hurts readability otherwise
+fn decode_cesu8(bytes: &[u8]) -> Result<String, Error> {
     let mut decoded = Vec::with_capacity(bytes.len());
     let mut iter = bytes.iter();
 
     macro_rules! err {
         () => {{
-            return Err(DecodingError);
+            return Err(Error);
         }};
     }
 
@@ -194,12 +209,12 @@ fn decode_code_point(code_point: u32) -> [u8; 4] {
 ///
 /// If the string slice's representation in CESU-8 would be identical to its
 /// present UTF-8 representation, this function is functionally no different
-/// than [`(&str).as_bytes()`](str::as_bytes); this means that `to_cesu8` does
+/// than [`(&str).as_bytes()`](str::as_bytes); this means that `encode` does
 /// not need to perform any further operations and doesn't need to allocate any
 /// additional memory.
 ///
 /// If the string slice's representation in UTF-8 is not equivalent in CESU-8,
-/// `to_cesu8` encodes the string slice to its CESU-8 representation as a slice
+/// `encode` encodes the string slice to its CESU-8 representation as a slice
 /// of bytes.
 ///
 /// # Examples
@@ -207,24 +222,24 @@ fn decode_code_point(code_point: u32) -> [u8; 4] {
 /// Basic usage:
 ///
 /// ```
-/// use std::borrow::Cow;
-/// use cesu8::to_cesu8;
+/// # extern crate alloc;
+/// use alloc::borrow::Cow;
 ///
 /// let str = "Hello, world!";
 /// // Since 'str' is valid UTF-8 and CESU-8 data, 'to_cesu8' can encode
 /// // data without allocating memory.
-/// assert_eq!(to_cesu8(str), Cow::Borrowed(str.as_bytes()));
+/// assert_eq!(cesu8::encode(str), Cow::Borrowed(str.as_bytes()));
 ///
 /// let utf8_data = "\u{10401}";
 /// let cesu8_data = Cow::Borrowed(&[0xED, 0xA0, 0x81, 0xED, 0xB0, 0x81]);
 /// // 'utf8_data' is a 4-byte UTF-8 representation, which becomes a 6-byte
 /// // CESU-8 representation.
-/// assert_eq!(to_cesu8(utf8_data), cesu8_data);
+/// assert_eq!(cesu8::encode(utf8_data), cesu8_data);
 /// ```
 #[must_use]
 #[inline]
-pub fn to_cesu8(str: &str) -> Cow<[u8]> {
-    if is_valid_cesu8(str) {
+pub fn encode(str: &str) -> Cow<[u8]> {
+    if is_valid(str) {
         Cow::Borrowed(str.as_bytes())
     } else {
         Cow::Owned(encode_cesu8(str))
@@ -236,7 +251,7 @@ pub fn to_cesu8(str: &str) -> Cow<[u8]> {
 #[cold]
 fn encode_cesu8(str: &str) -> Vec<u8> {
     let bytes = str.as_bytes();
-    let capacity = cesu8_len(str);
+    let capacity = len(str);
     let mut encoded = Vec::with_capacity(capacity);
     let mut index = 0;
 
@@ -296,17 +311,15 @@ fn to_surrogate_pair(code_point: u32) -> [u16; 2] {
 /// Basic usage:
 ///
 /// ```
-/// use cesu8::cesu8_len;
-///
 /// // Any codepoint below or equal to U+FFFF is the same length as it is in
 /// // UTF-8.
-/// assert_eq!(3, cesu8_len("\u{FFFF}"));
+/// assert_eq!(3, cesu8::len("\u{FFFF}"));
 ///
 /// // Any codepoint above U+FFFF is stored as a surrogate pair.
-/// assert_eq!(6, cesu8_len("\u{10000}"));
+/// assert_eq!(6, cesu8::len("\u{10000}"));
 /// ```
 #[must_use]
-pub fn cesu8_len(str: &str) -> usize {
+pub fn len(str: &str) -> usize {
     let bytes = str.as_bytes();
     let mut len = 0;
     let mut index = 0;
@@ -332,27 +345,25 @@ pub fn cesu8_len(str: &str) -> usize {
 /// Returns `true` if a string slice contains UTF-8 data that is also valid
 /// CESU-8.
 ///
-/// This is primarily used in testing if a string slice needs to be
-/// explicitly encoded using [`to_cesu8`](to_cesu8). If `is_valid_cesu8()`
-/// returns `false`, it implies that [`&str.as_bytes()`](str::as_bytes) is
-/// directly equivalent to the string slice's CESU-8 representation.
+/// This is primarily used in testing if a string slice needs to be explicitly
+/// encoded using [`encode`]. If `is_valid()` returns `false`, it implies that
+/// [`&str.as_bytes()`](str::as_bytes) is directly  equivalent to the string
+/// slice's CESU-8 representation.
 ///
 /// # Examples
 ///
 /// Basic usage:
 ///
 /// ```
-/// use cesu8::is_valid_cesu8;
-///
 /// // Any code point below or equal to U+FFFF encoded in UTF-8 IS valid CESU-8.
-/// assert!(is_valid_cesu8("Hello, world!"));
-/// assert!(is_valid_cesu8("\u{FFFF}"));
+/// assert!(cesu8::is_valid("Hello, world!"));
+/// assert!(cesu8::is_valid("\u{FFFF}"));
 ///
 /// // Any code point above U+FFFF encoded in UTF-8 IS NOT valid CESU-8.
-/// assert!(!is_valid_cesu8("\u{10000}"));
+/// assert!(!cesu8::is_valid("\u{10000}"));
 /// ```
 #[must_use]
-pub fn is_valid_cesu8(str: &str) -> bool {
+pub fn is_valid(str: &str) -> bool {
     for byte in str.bytes() {
         if is_continuation_byte(byte) {
             continue;
@@ -390,18 +401,20 @@ fn utf8_char_width(byte: u8) -> Option<usize> {
 
 const MAX_ASCII_CODE_POINT: u8 = 0x7F;
 
-/// An error thrown by [`from_cesu8`] when the input is invalid CESU-8 data.
+/// An error thrown by [`decode`] when the input is invalid CESU-8 data.
 ///
 /// This type does not support transmission of an error other than that an error
 /// occurred.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct DecodingError;
+pub struct Error;
 
-impl fmt::Display for DecodingError {
+impl fmt::Display for Error {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("invalid CESU-8 data")
     }
 }
 
-impl Error for DecodingError {}
+#[cfg(feature = "std")]
+#[cfg_attr(doc_cfg, doc(cfg(feature = "std")))]
+impl std::error::Error for Error {}

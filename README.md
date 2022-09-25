@@ -12,53 +12,31 @@ A simple library for converting between CESU-8 and UTF-8.
 
 ## Documentation
 
-[Module documentation with examples](https://docs.rs/residua-cesu8).
+View the examples and documentation on `docs.rs` here: https://docs.rs/residua-cesu8.
 
 ## Usage
 
-This crate is [on crates.io][crates] and can be used by adding `residua-cesu8`
+This crate is [on crates.io][crates.io] and can be used by adding `residua-cesu8`
 to your dependencies in your project's `Cargo.toml`:
 
 ```toml
 [dependencies]
-residua-cesu8 = "1"
+residua-cesu8 = "2"
 ```
 
-[crates]: https://crates.io/crates/residua-cesu8
+## Features
 
-## Examples
-
-Basic usage:
-
-```rust
-use std::borrow::Cow;
-use cesu8::{from_cesu8, to_cesu8};
-
-let str = "Hello, world!";
-assert_eq!(to_cesu8(str), Cow::Borrowed(str.as_bytes()));
-assert_eq!(from_cesu8(str.as_bytes()), Ok(Cow::Borrowed(str)));
-```
-
-When data needs to be encoded or decoded, it functions as one might expect:
-
-```rust
-use std::borrow::Cow;
-use cesu8::from_cesu8;
-
-let str = "\u{10400}";
-let cesu8_data = &[0xED, 0xA0, 0x81, 0xED, 0xB0, 0x80];
-let result: Result<Cow<str>, cesu8::DecodingError> = from_cesu8(cesu8_data);
-assert_eq!(result.unwrap(), Cow::<str>::Owned(String::from(str)));
-```
+- `std` implements `std::error::Error` on `Error`. By default this feature is
+  enabled.
 
 ## License
 
 Licensed under either of
 
--   Apache License, Version 2.0
-    ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
--   MIT license
-    ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+- Apache License, Version 2.0
+  ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license
+  ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
 
 at your option.
 
