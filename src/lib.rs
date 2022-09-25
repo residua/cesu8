@@ -38,7 +38,7 @@
 //! # fn main() -> Result<(), cesu8::Error> {
 //! let str = "\u{10400}";
 //! let cesu8_data = &[0xED, 0xA0, 0x81, 0xED, 0xB0, 0x80];
-//! assert_eq!(cesu8::decode(cesu8_data)?, Cow::<str>::Owned(String::from(str)));
+//! assert_eq!(cesu8::decode(cesu8_data)?, Cow::<str>::Owned(str.to_string()));
 //! # Ok(())
 //! # }
 //! ```
@@ -91,7 +91,7 @@ use core::fmt;
 /// let cesu8_data = &[0xED, 0xA0, 0x81, 0xED, 0xB0, 0x80];
 /// // 'cesu8_data' is a byte slice containing a 6-byte surrogate pair which
 /// // becomes a 4-byte UTF-8 character.
-/// assert_eq!(cesu8::decode(cesu8_data)?, Cow::Borrowed(str));
+/// assert_eq!(cesu8::decode(cesu8_data)?, Cow::<str>::Owned(str.to_string()));
 /// # Ok(())
 /// # }
 /// ```
@@ -232,10 +232,10 @@ fn decode_code_point(code_point: u32) -> [u8; 4] {
 /// assert_eq!(cesu8::encode(str), Cow::Borrowed(str.as_bytes()));
 ///
 /// let utf8_data = "\u{10401}";
-/// let cesu8_data = Cow::Borrowed(&[0xED, 0xA0, 0x81, 0xED, 0xB0, 0x81]);
+/// let cesu8_data = vec![0xED, 0xA0, 0x81, 0xED, 0xB0, 0x81];
 /// // 'utf8_data' is a 4-byte UTF-8 representation, which becomes a 6-byte
 /// // CESU-8 representation.
-/// assert_eq!(cesu8::encode(utf8_data), cesu8_data);
+/// assert_eq!(cesu8::encode(utf8_data), Cow::<[u8]>::Owned(cesu8_data));
 /// ```
 #[must_use]
 #[inline]
@@ -314,10 +314,10 @@ fn to_surrogate_pair(code_point: u32) -> [u16; 2] {
 /// ```
 /// // Any codepoint below or equal to U+FFFF is the same length as it is in
 /// // UTF-8.
-/// assert_eq!(3, cesu8::len("\u{FFFF}"));
+/// assert_eq!(cesu8::len("\u{FFFF}"), 3);
 ///
 /// // Any codepoint above U+FFFF is stored as a surrogate pair.
-/// assert_eq!(6, cesu8::len("\u{10000}"));
+/// assert_eq!(cesu8::len("\u{10000}"), 6);
 /// ```
 #[must_use]
 pub fn len(str: &str) -> usize {
