@@ -16,5 +16,7 @@ name = "cesu8"
 
 [features]
 default = ["std"]
-
 std = []
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "doc_cfg"]
